@@ -66,7 +66,7 @@ def cross_val_score(estimator, X, y=None, labels=None, scoring=None, cv=None,
                     pre_dispatch='2*n_jobs'):
     """Evaluate a score by cross-validation
 
-    Read more in the :ref:`User Guide <validate>`.
+    Read more in the :ref:`User Guide <cross_validation>`.
 
     Parameters
     ----------
@@ -97,13 +97,12 @@ def cross_val_score(estimator, X, y=None, labels=None, scoring=None, cv=None,
           - An object to be used as a cross-validation generator.
           - An iterable yielding train, test splits.
 
-        For integer/None inputs, ``StratifiedKFold`` is used for classification
-        tasks, when ``y`` is binary or multiclass.
+        For integer/None inputs, if the estimator is a classifier and ``y`` is
+        either binary or multiclass, :class:`StratifiedKFold` is used. In all
+        other cases, :class:`KFold` is used.
 
-        See the :mod:`sklearn.model_selection` module for the list of
+        Refer :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
-
-        Also refer :ref:`cross-validation documentation <cross_validation>`
 
     n_jobs : integer, optional
         The number of CPUs to use to do the computation. -1 means
@@ -136,6 +135,23 @@ def cross_val_score(estimator, X, y=None, labels=None, scoring=None, cv=None,
     -------
     scores : array of float, shape=(len(list(cv)),)
         Array of scores of the estimator for each run of the cross validation.
+
+    Examples
+    --------
+    >>> from sklearn import datasets, linear_model
+    >>> from sklearn.model_selection import cross_val_score
+    >>> diabetes = datasets.load_diabetes()
+    >>> X = diabetes.data[:150]
+    >>> y = diabetes.target[:150]
+    >>> lasso = linear_model.Lasso()
+    >>> print(cross_val_score(lasso, X, y))  # doctest: +ELLIPSIS
+    [ 0.33150734  0.08022311  0.03531764]
+
+    See Also
+    ---------
+    :func:`sklearn.metrics.make_scorer`:
+        Make a scorer from a performance metric or loss function.
+
     """
     X, y, labels = indexable(X, y, labels)
 
@@ -219,7 +235,7 @@ def _fit_and_score(estimator, X, y, scorer, train, test, verbose,
     """
     if verbose > 1:
         if parameters is None:
-            msg = "no parameters to be set"
+            msg = ''
         else:
             msg = '%s' % (', '.join('%s=%s' % (k, v)
                           for k, v in parameters.items()))
@@ -285,6 +301,13 @@ def _score(estimator, X_test, y_test, scorer):
         score = scorer(estimator, X_test)
     else:
         score = scorer(estimator, X_test, y_test)
+    if hasattr(score, 'item'):
+        try:
+            # e.g. unwrap memmapped scalars
+            score = score.item()
+        except ValueError:
+            # non-scalar?
+            pass
     if not isinstance(score, numbers.Number):
         raise ValueError("scoring must return a number, got %s (%s) instead."
                          % (str(score), type(score)))
@@ -292,10 +315,11 @@ def _score(estimator, X_test, y_test, scorer):
 
 
 def cross_val_predict(estimator, X, y=None, labels=None, cv=None, n_jobs=1,
-                      verbose=0, fit_params=None, pre_dispatch='2*n_jobs'):
+                      verbose=0, fit_params=None, pre_dispatch='2*n_jobs',
+                      method='predict'):
     """Generate cross-validated estimates for each input data point
 
-    Read more in the :ref:`User Guide <validate>`.
+    Read more in the :ref:`User Guide <cross_validation>`.
 
     Parameters
     ----------
@@ -321,13 +345,12 @@ def cross_val_predict(estimator, X, y=None, labels=None, cv=None, n_jobs=1,
           - An object to be used as a cross-validation generator.
           - An iterable yielding train, test splits.
 
-        For integer/None inputs, ``StratifiedKFold`` is used for classification
-        tasks, when ``y`` is binary or multiclass.
+        For integer/None inputs, if the estimator is a classifier and ``y`` is
+        either binary or multiclass, :class:`StratifiedKFold` is used. In all
+        other cases, :class:`KFold` is used.
 
-        See the :mod:`sklearn.model_selection` module for the list of
+        Refer :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
-
-        Also refer :ref:`cross-validation documentation <_cross_validation>`
 
     n_jobs : integer, optional
         The number of CPUs to use to do the computation. -1 means
@@ -356,20 +379,39 @@ def cross_val_predict(estimator, X, y=None, labels=None, cv=None, n_jobs=1,
             - A string, giving an expression as a function of n_jobs,
               as in '2*n_jobs'
 
+    method : string, optional, default: 'predict'
+        Invokes the passed method name of the passed estimator.
+
     Returns
     -------
     predictions : ndarray
-        This is the result of calling 'predict'
+        This is the result of calling ``method``
+
+    Examples
+    --------
+    >>> from sklearn import datasets, linear_model
+    >>> from sklearn.model_selection import cross_val_predict
+    >>> diabetes = datasets.load_diabetes()
+    >>> X = diabetes.data[:150]
+    >>> y = diabetes.target[:150]
+    >>> lasso = linear_model.Lasso()
+    >>> y_pred = cross_val_predict(lasso, X, y)
     """
     X, y, labels = indexable(X, y, labels)
 
     cv = check_cv(cv, y, classifier=is_classifier(estimator))
+
+    # Ensure the estimator has implemented the passed decision function
+    if not callable(getattr(estimator, method)):
+        raise AttributeError('{} not implemented in estimator'
+                             .format(method))
+
     # We clone the estimator to make sure that all the folds are
     # independent, and that it is pickle-able.
     parallel = Parallel(n_jobs=n_jobs, verbose=verbose,
                         pre_dispatch=pre_dispatch)
     prediction_blocks = parallel(delayed(_fit_and_predict)(
-        clone(estimator), X, y, train, test, verbose, fit_params)
+        clone(estimator), X, y, train, test, verbose, fit_params, method)
         for train, test in cv.split(X, y, labels))
 
     # Concatenate the predictions
@@ -391,10 +433,11 @@ def cross_val_predict(estimator, X, y=None, labels=None, cv=None, n_jobs=1,
     return predictions[inv_test_indices]
 
 
-def _fit_and_predict(estimator, X, y, train, test, verbose, fit_params):
+def _fit_and_predict(estimator, X, y, train, test, verbose, fit_params,
+                     method):
     """Fit estimator and predict values for a given dataset split.
 
-    Read more in the :ref:`User Guide <validate>`.
+    Read more in the :ref:`User Guide <cross_validation>`.
 
     Parameters
     ----------
@@ -420,10 +463,13 @@ def _fit_and_predict(estimator, X, y, train, test, verbose, fit_params):
     fit_params : dict or None
         Parameters that will be passed to ``estimator.fit``.
 
+    method : string
+        Invokes the passed method name of the passed estimator.
+
     Returns
     -------
     predictions : sequence
-        Result of calling 'estimator.predict'
+        Result of calling 'estimator.method'
 
     test : array-like
         This is the value of the test parameter
@@ -440,7 +486,8 @@ def _fit_and_predict(estimator, X, y, train, test, verbose, fit_params):
         estimator.fit(X_train, **fit_params)
     else:
         estimator.fit(X_train, y_train, **fit_params)
-    predictions = estimator.predict(X_test)
+    func = getattr(estimator, method)
+    predictions = func(X_test)
     return predictions, test
 
 
@@ -483,7 +530,7 @@ def permutation_test_score(estimator, X, y, labels=None, cv=None,
                            verbose=0, scoring=None):
     """Evaluate the significance of a cross-validated score with permutations
 
-    Read more in the :ref:`User Guide <validate>`.
+    Read more in the :ref:`User Guide <cross_validation>`.
 
     Parameters
     ----------
@@ -514,13 +561,12 @@ def permutation_test_score(estimator, X, y, labels=None, cv=None,
           - An object to be used as a cross-validation generator.
           - An iterable yielding train, test splits.
 
-        For integer/None inputs, ``StratifiedKFold`` is used for classification
-        tasks, when ``y`` is binary or multiclass.
+        For integer/None inputs, if the estimator is a classifier and ``y`` is
+        either binary or multiclass, :class:`StratifiedKFold` is used. In all
+        other cases, :class:`KFold` is used.
 
-        See the :mod:`sklearn.model_selection` module for the list of
+        Refer :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
-
-        Also refer :ref:`cross-validation documentation <_cross_validation>`
 
     n_permutations : integer, optional
         Number of times to permute ``y``.
@@ -618,7 +664,7 @@ def learning_curve(estimator, X, y, labels=None,
     test set will be computed. Afterwards, the scores will be averaged over
     all k runs for each training subset size.
 
-    Read more in the :ref:`User Guide <validate>`.
+    Read more in the :ref:`User Guide <learning_curve>`.
 
     Parameters
     ----------
@@ -655,13 +701,12 @@ def learning_curve(estimator, X, y, labels=None,
           - An object to be used as a cross-validation generator.
           - An iterable yielding train, test splits.
 
-        For integer/None inputs, ``StratifiedKFold`` is used for classification
-        tasks, when ``y`` is binary or multiclass.
+        For integer/None inputs, if the estimator is a classifier and ``y`` is
+        either binary or multiclass, :class:`StratifiedKFold` is used. In all
+        other cases, :class:`KFold` is used.
 
-        See the :mod:`sklearn.model_selection` module for the list of
+        Refer :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
-
-        Also refer :ref:`cross-validation documentation <_cross_validation>`
 
     scoring : string, callable or None, optional, default: None
         A string (see model evaluation documentation) or
@@ -836,7 +881,7 @@ def validation_curve(estimator, X, y, param_name, param_range, labels=None,
     will also compute training scores and is merely a utility for plotting the
     results.
 
-    Read more in the :ref:`User Guide <validate>`.
+    Read more in the :ref:`User Guide <learning_curve>`.
 
     Parameters
     ----------
@@ -869,13 +914,12 @@ def validation_curve(estimator, X, y, param_name, param_range, labels=None,
           - An object to be used as a cross-validation generator.
           - An iterable yielding train, test splits.
 
-        For integer/None inputs, ``StratifiedKFold`` is used for classification
-        tasks, when ``y`` is binary or multiclass.
+        For integer/None inputs, if the estimator is a classifier and ``y`` is
+        either binary or multiclass, :class:`StratifiedKFold` is used. In all
+        other cases, :class:`KFold` is used.
 
-        See the :mod:`sklearn.model_selection` module for the list of
+        Refer :ref:`User Guide <cross_validation>` for the various
         cross-validation strategies that can be used here.
-
-        Also refer :ref:`cross-validation documentation <_cross_validation>`
 
     scoring : string, callable or None, optional, default: None
         A string (see model evaluation documentation) or

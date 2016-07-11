@@ -53,6 +53,11 @@ def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
         else:  # mode A
             # Mode A regress each X column on y_score
             x_weights = np.dot(X.T, y_score) / np.dot(y_score.T, y_score)
+        # If y_score only has zeros x_weights will only have zeros. In
+        # this case add an epsilon to converge to a more acceptable
+        # solution
+        if np.dot(x_weights.T, x_weights) < eps:
+            x_weights += eps
         # 1.2 Normalize u
         x_weights /= np.sqrt(np.dot(x_weights.T, x_weights)) + eps
         # 1.3 Update x_score: the X latent scores
@@ -521,7 +526,8 @@ class PLSRegression(_PLS):
 
     Notes
     -----
-    Matrices :
+    Matrices::
+
         T: x_scores_
         U: y_scores_
         W: x_weights_
@@ -529,16 +535,17 @@ class PLSRegression(_PLS):
         P: x_loadings_
         Q: y_loadings__
 
-    Are computed such that:
+    Are computed such that::
+
         X = T P.T + Err and Y = U Q.T + Err
         T[:, k] = Xk W[:, k] for k in range(n_components)
         U[:, k] = Yk C[:, k] for k in range(n_components)
         x_rotations_ = W (P.T W)^(-1)
         y_rotations_ = C (Q.T C)^(-1)
+
     where Xk and Yk are residual matrices at iteration k.
 
-    Slides explaining PLS
-    :ref:http://www.eigenvector.com/Docs/Wise_pls_properties.pdf
+    `Slides explaining PLS <http://www.eigenvector.com/Docs/Wise_pls_properties.pdf>`
 
     For each component k, find weights u, v that optimizes:
     ``max corr(Xk u, Yk v) * std(Xk u) std(Yk u)``, such that ``|u| = 1``
@@ -656,7 +663,8 @@ class PLSCanonical(_PLS):
 
     Notes
     -----
-    Matrices :
+    Matrices::
+
         T: x_scores_
         U: y_scores_
         W: x_weights_
@@ -664,19 +672,21 @@ class PLSCanonical(_PLS):
         P: x_loadings_
         Q: y_loadings__
 
-    Are computed such that:
+    Are computed such that::
+
         X = T P.T + Err and Y = U Q.T + Err
         T[:, k] = Xk W[:, k] for k in range(n_components)
         U[:, k] = Yk C[:, k] for k in range(n_components)
         x_rotations_ = W (P.T W)^(-1)
         y_rotations_ = C (Q.T C)^(-1)
+
     where Xk and Yk are residual matrices at iteration k.
 
-    Slides explaining PLS
-    :ref:http://www.eigenvector.com/Docs/Wise_pls_properties.pdf
+    `Slides explaining PLS <http://www.eigenvector.com/Docs/Wise_pls_properties.pdf>`
 
     For each component k, find weights u, v that optimize::
-    max corr(Xk u, Yk v) * std(Xk u) std(Yk u), such that ``|u| = |v| = 1``
+
+        max corr(Xk u, Yk v) * std(Xk u) std(Yk u), such that ``|u| = |v| = 1``
 
     Note that it maximizes both the correlations between the scores and the
     intra-block variances.

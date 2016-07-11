@@ -1,4 +1,4 @@
-.. _neural_network:
+.. _neural_networks_supervised:
 
 ==================================
 Neural network models (supervised)
@@ -6,6 +6,13 @@ Neural network models (supervised)
 
 .. currentmodule:: sklearn.neural_network
 
+
+.. warning::
+
+    This implementation is not intended for large-scale applications. In particular,
+    scikit-learn offers no GPU support. For much faster, GPU-based implementations,
+    as well as frameworks offering much more flexibility to build deep learning
+    architectures, see  :ref:`related_projects`.
 
 .. _multilayer_perceptron:
 
@@ -82,7 +89,7 @@ training samples::
     >>> clf = MLPClassifier(algorithm='l-bfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
     >>> clf.fit(X, y) # doctest: +NORMALIZE_WHITESPACE
     MLPClassifier(activation='relu', algorithm='l-bfgs', alpha=1e-05,
-           batch_size=200, beta_1=0.9, beta_2=0.999, early_stopping=False,
+           batch_size='auto', beta_1=0.9, beta_2=0.999, early_stopping=False,
            epsilon=1e-08, hidden_layer_sizes=(5, 2), learning_rate='constant',
            learning_rate_init=0.001, max_iter=200, momentum=0.9,
            nesterovs_momentum=True, power_t=0.5, random_state=1, shuffle=True,
@@ -122,7 +129,7 @@ of probability estimates :math:`P(y|x)` per sample :math:`x`::
            [ 0.,  1.]])
 
 :class:`MLPClassifier` supports multi-class classification by
-applying `Softmax <http://en.wikipedia.org/wiki/Softmax_activation_function>`_
+applying `Softmax <https://en.wikipedia.org/wiki/Softmax_activation_function>`_
 as the output function.
 
 Further, the algorithm supports :ref:`multi-label classification <multiclass>`
@@ -137,7 +144,7 @@ value is `1` represents the assigned classes of that sample::
     >>> clf = MLPClassifier(algorithm='l-bfgs', alpha=1e-5, hidden_layer_sizes=(15,), random_state=1)
     >>> clf.fit(X, y)
     MLPClassifier(activation='relu', algorithm='l-bfgs', alpha=1e-05,
-           batch_size=200, beta_1=0.9, beta_2=0.999, early_stopping=False,
+           batch_size='auto', beta_1=0.9, beta_2=0.999, early_stopping=False,
            epsilon=1e-08, hidden_layer_sizes=(15,), learning_rate='constant',
            learning_rate_init=0.001, max_iter=200, momentum=0.9,
            nesterovs_momentum=True, power_t=0.5, random_state=1, shuffle=True,
@@ -153,8 +160,8 @@ See the examples below and the doc string of
 
 .. topic:: Examples:
 
- * :ref:`example_plot_mlp_alpha.py`
-
+ * :ref:`example_neural_networks_plot_mlp_training_curves.py`
+ * :ref:`example_neural_networks_plot_mnist_filters.py`
 
 Regression
 ==========
@@ -168,14 +175,32 @@ set of continuous values.
 :class:`MLPRegressor` also supports multi-output regression, in
 which a sample can have more than one target.
 
+Regularization
+==============
+
+Both :class:`MLPRegressor` and class:`MLPClassifier` use parameter ``alpha``
+for regularization (L2 regularization) term which helps in avoiding overfitting
+by penalizing weights with large magnitudes. Following plot displays varying
+decision function with value of alpha.
+
+.. figure:: ../auto_examples/neural_networks/images/plot_mlp_alpha_001.png
+   :target: ../auto_examples/neural_networks/plot_mlp_alpha.html
+   :align: center
+   :scale: 75
+
+See the examples below for further information.
+
+.. topic:: Examples:
+
+ * :ref:`example_neural_networks_plot_mlp_alpha.py`
 
 Algorithms
 ==========
 
 MLP trains using `Stochastic Gradient Descent
-<http://en.wikipedia.org/wiki/Stochastic_gradient_descent>`_,
+<https://en.wikipedia.org/wiki/Stochastic_gradient_descent>`_,
 `Adam <http://arxiv.org/abs/1412.6980>`_, or
-`L-BFGS <http://en.wikipedia.org/wiki/Limited-memory_BFGS>`_.
+`L-BFGS <https://en.wikipedia.org/wiki/Limited-memory_BFGS>`__.
 Stochastic Gradient Descent (SGD) updates parameters using the gradient of the
 loss function with respect to a parameter that needs adaptation, i.e.
 
@@ -201,7 +226,7 @@ L-BFGS is a fast learning algorithm that approximates the Hessian matrix which
 represents the second-order partial derivative of a function. Further it
 approximates the inverse of the Hessian matrix to perform parameter updates.
 The implementation uses the Scipy version of
-`L-BFGS <http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html>`_..
+`L-BFGS <http://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html>`__..
 
 If the selected algorithm is 'L-BFGS', training does not support online nor
 mini-batch learning.
@@ -337,7 +362,7 @@ or want to do additional monitoring, using ``warm_start=True`` and
 
     >>> X = [[0., 0.], [1., 1.]]
     >>> y = [0, 1]
-    >>> clf = MLPClassifier(hidden_layer_sizes=(15,), random_state=1, max_iter=1)
+    >>> clf = MLPClassifier(hidden_layer_sizes=(15,), random_state=1, max_iter=1, warm_start=True)
     >>> for i in range(10):
     ...     clf.fit(X, y)
     ...     # additional monitoring / inspection # doctest: +ELLIPSIS

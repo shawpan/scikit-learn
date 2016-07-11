@@ -76,7 +76,7 @@ but regular, observation outside the frontier.
      :class:`svm.OneClassSVM` object.
 
 .. figure:: ../auto_examples/svm/images/plot_oneclass_001.png
-   :target: ../auto_examples/svm/plot_oneclasse.html
+   :target: ../auto_examples/svm/plot_oneclass.html
    :align: center
    :scale: 75%
    
@@ -129,6 +129,7 @@ This strategy is illustrated below.
     ..  [RD1999] Rousseeuw, P.J., Van Driessen, K. "A fast algorithm for the minimum
         covariance determinant estimator" Technometrics 41(3), 212 (1999)
 
+.. _isolation_forest:
 
 Isolation Forest
 ----------------------------
@@ -169,6 +170,7 @@ This strategy is illustrated below.
      :class:`covariance.MinCovDet`.
 
 .. topic:: References:
+
     .. [LTZ2008] Liu, Fei Tony, Ting, Kai Ming and Zhou, Zhi-Hua. "Isolation forest."
            Data Mining, 2008. ICDM'08. Eighth IEEE International Conference on.
 

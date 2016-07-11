@@ -38,7 +38,7 @@ except:
 extensions = ['gen_rst',
               'sphinx.ext.autodoc', 'sphinx.ext.autosummary',
               'sphinx.ext.pngmath', 'numpy_ext.numpydoc',
-              'sphinx.ext.linkcode',
+              'sphinx.ext.linkcode', 'sphinx.ext.doctest',
               ]
 
 autosummary_generate = True
@@ -65,7 +65,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u('scikit-learn')
-copyright = u('2010 - 2014, scikit-learn developers (BSD License)')
+copyright = u('2010 - 2016, scikit-learn developers (BSD License)')
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

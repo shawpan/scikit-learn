@@ -12,6 +12,7 @@ from sklearn.utils.testing import assert_array_equal
 from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_raises_regexp
 from sklearn.utils.testing import assert_true
+from sklearn.utils.testing import ignore_warnings
 
 from sklearn.externals.six import iteritems
 
@@ -31,6 +32,7 @@ from sklearn.metrics.pairwise import pairwise_distances_argmin
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.metrics.pairwise import PAIRWISE_KERNEL_FUNCTIONS
 from sklearn.metrics.pairwise import PAIRWISE_DISTANCE_FUNCTIONS
+from sklearn.metrics.pairwise import PAIRWISE_BOOLEAN_FUNCTIONS
 from sklearn.metrics.pairwise import PAIRED_DISTANCES
 from sklearn.metrics.pairwise import check_pairwise_arrays
 from sklearn.metrics.pairwise import check_paired_arrays
@@ -38,6 +40,7 @@ from sklearn.metrics.pairwise import paired_distances
 from sklearn.metrics.pairwise import paired_euclidean_distances
 from sklearn.metrics.pairwise import paired_manhattan_distances
 from sklearn.preprocessing import normalize
+from sklearn.exceptions import DataConversionWarning
 
 
 def test_pairwise_distances():
@@ -111,8 +114,24 @@ def test_pairwise_distances():
     assert_raises(TypeError, pairwise_distances, X, Y_sparse,
                   metric="minkowski")
 
-    # Test that a value error is raised if the metric is unkown
+    # Test that a value error is raised if the metric is unknown
     assert_raises(ValueError, pairwise_distances, X, Y, metric="blah")
+
+
+# ignore conversion to boolean in pairwise_distances
+@ignore_warnings(category=DataConversionWarning)
+def test_pairwise_boolean_distance():
+    # test that we convert to boolean arrays for boolean distances
+    rng = np.random.RandomState(0)
+    X = rng.randn(5, 4)
+    Y = X.copy()
+    Y[0, 0] = 1 - Y[0, 0]
+
+    for metric in PAIRWISE_BOOLEAN_FUNCTIONS:
+        for Z in [Y, None]:
+            res = pairwise_distances(X, Z, metric=metric)
+            res[np.isnan(res)] = 0
+            assert_true(np.sum(res != 0) == 0)
 
 
 def test_pairwise_precomputed():
@@ -143,7 +162,7 @@ def test_pairwise_precomputed():
         assert_equal('f', S.dtype.kind)
 
         # Test converts list to array-like
-        S = func([[1]], metric='precomputed')
+        S = func([[1.]], metric='precomputed')
         assert_true(isinstance(S, np.ndarray))
 
 
@@ -188,7 +207,7 @@ def test_pairwise_callable_nonstrict_metric():
     # paired_distances should allow callable metric where metric(x, x) != 0
     # Knowing that the callable is a strict metric would allow the diagonal to
     # be left uncalculated and set to 0.
-    assert_equal(pairwise_distances([[1]], metric=lambda x, y: 5)[0, 0], 5)
+    assert_equal(pairwise_distances([[1.]], metric=lambda x, y: 5)[0, 0], 5)
 
 
 def callable_rbf_kernel(x, y, **kwds):
@@ -233,8 +252,7 @@ def test_pairwise_kernels():    # Test the pairwise_kernels helper function.
         assert_array_almost_equal(K1, K2)
     # Test with a callable function, with given keywords.
     metric = callable_rbf_kernel
-    kwds = {}
-    kwds['gamma'] = 0.1
+    kwds = {'gamma': 0.1}
     K1 = pairwise_kernels(X, Y=Y, metric=metric, **kwds)
     K2 = rbf_kernel(X, Y=Y, **kwds)
     assert_array_almost_equal(K1, K2)
@@ -271,7 +289,7 @@ def test_paired_distances():
         S3 = func(csr_matrix(X), csr_matrix(Y))
         assert_array_almost_equal(S, S3)
         if metric in PAIRWISE_DISTANCE_FUNCTIONS:
-            # Check the the pairwise_distances implementation
+            # Check the pairwise_distances implementation
             # gives the same value
             distances = PAIRWISE_DISTANCE_FUNCTIONS[metric](X, Y)
             distances = np.diag(distances)

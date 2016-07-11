@@ -57,8 +57,16 @@ class Bunch(dict):
         except KeyError:
             raise AttributeError(key)
 
-    def __getstate__(self):
-        return self.__dict__
+    def __setstate__(self, state):
+        # Bunch pickles generated with scikit-learn 0.16.* have an non
+        # empty __dict__. This causes a surprising behaviour when
+        # loading these pickles scikit-learn 0.17: reading bunch.key
+        # uses __dict__ but assigning to bunch.key use __setattr__ and
+        # only changes bunch['key']. More details can be found at:
+        # https://github.com/scikit-learn/scikit-learn/issues/6196.
+        # Overriding __setstate__ to be a noop has the effect of
+        # ignoring the pickled __dict__
+        pass
 
 
 def get_data_home(data_home=None):
@@ -407,10 +415,10 @@ def load_digits(n_class=10):
         >>> digits = load_digits()
         >>> print(digits.data.shape)
         (1797, 64)
-        >>> import pylab as pl #doctest: +SKIP
-        >>> pl.gray() #doctest: +SKIP
-        >>> pl.matshow(digits.images[0]) #doctest: +SKIP
-        >>> pl.show() #doctest: +SKIP
+        >>> import matplotlib.pyplot as plt #doctest: +SKIP
+        >>> plt.gray() #doctest: +SKIP
+        >>> plt.matshow(digits.images[0]) #doctest: +SKIP
+        >>> plt.show() #doctest: +SKIP
     """
     module_path = dirname(__file__)
     data = np.loadtxt(join(module_path, 'data', 'digits.csv.gz'),

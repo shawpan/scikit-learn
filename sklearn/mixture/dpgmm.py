@@ -20,7 +20,7 @@ from ..utils import check_random_state, check_array
 from ..utils.extmath import logsumexp, pinvh, squared_norm
 from ..utils.validation import check_is_fitted
 from .. import cluster
-from .gmm import GMM
+from .gmm import _GMMBase
 
 
 def digamma(x):
@@ -65,7 +65,7 @@ def wishart_logz(v, s, dets, n_features):
 
 def _bound_wishart(a, B, detB):
     """Returns a function of the dof, scale matrix and its determinant
-    used as an upper bound in variational approcimation of the evidence"""
+    used as an upper bound in variational approximation of the evidence"""
     n_features = B.shape[0]
     logprior = wishart_logz(a, B, detB, n_features)
     logprior -= wishart_logz(n_features,
@@ -106,7 +106,7 @@ def _bound_state_log_lik(X, initial_bound, precs, means, covariance_type):
     return bound
 
 
-class DPGMM(GMM):
+class DPGMM(_GMMBase):
     """Variational Inference for the Infinite Gaussian Mixture Model.
 
     DPGMM stands for Dirichlet Process Gaussian Mixture Model, and it

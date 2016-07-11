@@ -129,7 +129,6 @@ Once trained, we can export the tree in `Graphviz
 exporter. Below is an example export of a tree trained on the entire
 iris dataset::
 
-    >>> from sklearn.externals.six import StringIO
     >>> with open("iris.dot", 'w') as f:
     ...     f = tree.export_graphviz(clf, out_file=f)
 
@@ -368,7 +367,7 @@ Tips on practical use
     If training data is not in this format, a copy of the dataset will be made.
 
   * If the input matrix X is very sparse, it is recommended to convert to sparse
-    ``csc_matrix` before calling fit and sparse ``csr_matrix`` before calling
+    ``csc_matrix`` before calling fit and sparse ``csr_matrix`` before calling
     predict. Training time can be orders of magnitude faster for a sparse
     matrix input compared to a dense matrix when features have zero values in
     most of the samples.
@@ -410,8 +409,8 @@ and threshold that yield the largest information gain at each node.
 
 scikit-learn uses an optimised version of the CART algorithm.
 
-.. _ID3: http://en.wikipedia.org/wiki/ID3_algorithm
-.. _CART: http://en.wikipedia.org/wiki/Predictive_analytics#Classification_and_regression_trees
+.. _ID3: https://en.wikipedia.org/wiki/ID3_algorithm
+.. _CART: https://en.wikipedia.org/wiki/Predictive_analytics#Classification_and_regression_trees
 
 
 .. _tree_mathematical_formulation:
@@ -500,9 +499,9 @@ criterion to minimise is the Mean Squared Error
 
 .. topic:: References:
 
-    * http://en.wikipedia.org/wiki/Decision_tree_learning
+    * https://en.wikipedia.org/wiki/Decision_tree_learning
 
-    * http://en.wikipedia.org/wiki/Predictive_analytics
+    * https://en.wikipedia.org/wiki/Predictive_analytics
 
     * L. Breiman, J. Friedman, R. Olshen, and C. Stone. Classification and
       Regression Trees. Wadsworth, Belmont, CA, 1984.

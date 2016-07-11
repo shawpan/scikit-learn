@@ -2,7 +2,7 @@
 
 # Author: Vincent Dubourg <vincent.dubourg@gmail.com>
 #         (mostly translation, see implementation details)
-# Licence: BSD 3 clause
+# License: BSD 3 clause
 
 from __future__ import print_function
 
@@ -203,7 +203,7 @@ class GaussianProcess(BaseEstimator, RegressorMixin):
 
     .. [NLNS2002] `H.B. Nielsen, S.N. Lophaven, H. B. Nielsen and J.
         Sondergaard.  DACE - A MATLAB Kriging Toolbox.` (2002)
-        http://www2.imm.dtu.dk/~hbn/dace/dace.pdf
+        http://imedea.uib-csic.es/master/cambioglobal/Modulo_V_cod101615/Lab/lab_maps/krigging/DACE-krigingsoft/dace/dace.pdf
 
     .. [WBSWM1992] `W.J. Welch, R.J. Buck, J. Sacks, H.P. Wynn, T.J. Mitchell,
         and M.D.  Morris (1992). Screening, predicting, and computer
@@ -624,7 +624,6 @@ class GaussianProcess(BaseEstimator, RegressorMixin):
             # 0.7. The economy transform will then be available through the
             # mode='economic' argument.
             Q, G = linalg.qr(Ft, mode='economic')
-            pass
 
         sv = linalg.svd(G, compute_uv=False)
         rcondG = sv[-1] / sv[0]
@@ -765,7 +764,7 @@ class GaussianProcess(BaseEstimator, RegressorMixin):
 
         elif self.optimizer == 'Welch':
 
-            # Backup of the given atrributes
+            # Backup of the given attributes
             theta0, thetaL, thetaU = self.theta0, self.thetaL, self.thetaU
             corr = self.corr
             verbose = self.verbose
@@ -805,7 +804,7 @@ class GaussianProcess(BaseEstimator, RegressorMixin):
                 optimal_theta[0, i], optimal_rlf_value, optimal_par = \
                     self._arg_max_reduced_likelihood_function()
 
-            # Restore the given atrributes
+            # Restore the given attributes
             self.theta0, self.thetaL, self.thetaU = theta0, thetaL, thetaU
             self.corr = corr
             self.optimizer = 'Welch'

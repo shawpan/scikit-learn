@@ -7,13 +7,13 @@
 #          Brian Holt <bdholt1@gmail.com>
 #          Noel Dawe <noel@dawe.me>
 #          Satrajit Gosh <satrajit.ghosh@gmail.com>
-#          Lars Buitinck <L.J.Buitinck@uva.nl>
+#          Lars Buitinck
 #          Arnaud Joly <arnaud.v.joly@gmail.com>
 #          Joel Nothman <joel.nothman@gmail.com>
 #          Fares Hedayati <fares.hedayati@gmail.com>
 #          Jacob Schreiber <jmschreiber91@gmail.com>
 #
-# Licence: BSD 3 clause
+# License: BSD 3 clause
 
 from cpython cimport Py_INCREF, PyObject
 
@@ -192,13 +192,14 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef Stack stack = Stack(INITIAL_STACK_SIZE)
         cdef StackRecord stack_record
 
-        # push root node onto stack
-        rc = stack.push(0, n_node_samples, 0, _TREE_UNDEFINED, 0, INFINITY, 0)
-        if rc == -1:
-            # got return code -1 - out-of-memory
-            raise MemoryError()
-
         with nogil:
+            # push root node onto stack
+            rc = stack.push(0, n_node_samples, 0, _TREE_UNDEFINED, 0, INFINITY, 0)
+            if rc == -1:
+                # got return code -1 - out-of-memory
+                with gil:
+                    raise MemoryError()
+
             while not stack.is_empty():
                 stack.pop(&stack_record)
 
@@ -341,10 +342,11 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
                                       &split_node_left)
             if rc >= 0:
                 rc = _add_to_frontier(&split_node_left, frontier)
-        if rc == -1:
-            raise MemoryError()
 
-        with nogil:
+            if rc == -1:
+                with gil:
+                    raise MemoryError()
+
             while not frontier.is_empty():
                 frontier.pop(&record)
 
@@ -537,7 +539,7 @@ cdef class Tree:
     """
     # Wrap for outside world.
     # WARNING: these reference the current `nodes` and `value` buffers, which
-    # must not be be freed by a subsequent memory allocation.
+    # must not be freed by a subsequent memory allocation.
     # (i.e. through `_resize` or `__setstate__`)
     property n_classes:
         def __get__(self):

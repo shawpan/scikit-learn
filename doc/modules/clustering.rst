@@ -4,7 +4,7 @@
 Clustering
 ==========
 
-`Clustering <https://en.wikipedia.org/wiki/Cluster_analysis>`_ of
+`Clustering <https://en.wikipedia.org/wiki/Cluster_analysis>`__ of
 unlabeled data can be performed with the module :mod:`sklearn.cluster`.
 
 Each clustering algorithm comes in two variants: a class, that implements
@@ -18,17 +18,13 @@ data can be found in the ``labels_`` attribute.
 .. topic:: Input data
 
     One important thing to note is that the algorithms implemented in
-    this module take different kinds of matrix as input.  On one hand,
-    :class:`MeanShift` and :class:`KMeans` take data matrices of shape
-    [n_samples, n_features]. These can be obtained from the classes in
-    the :mod:`sklearn.feature_extraction` module. On the other hand,
-    :class:`AffinityPropagation` and :class:`SpectralClustering` take
-    similarity matrices of shape [n_samples, n_samples].  These can be
-    obtained from the functions in the :mod:`sklearn.metrics.pairwise`
-    module. In other words, :class:`MeanShift` and :class:`KMeans` work
-    with points in a vector space, whereas :class:`AffinityPropagation`
-    and :class:`SpectralClustering` can work with arbitrary objects, as
-    long as a similarity measure exists for such objects.
+    this module can take different kinds of matrix as input. All the
+    methods accept standard data matrices of shape ``[n_samples, n_features]``.
+    These can be obtained from the classes in the :mod:`sklearn.feature_extraction`
+    module. For :class:`AffinityPropagation`, :class:`SpectralClustering`
+    and :class:`DBSCAN` one can also input similarity matrices of shape
+    ``[n_samples, n_samples]``. These can be obtained from the functions
+    in the :mod:`sklearn.metrics.pairwise` module.
 
 Overview of clustering methods
 ===============================
@@ -464,15 +460,15 @@ function of the gradient of the image.
  * :ref:`example_cluster_plot_segmentation_toy.py`: Segmenting objects
    from a noisy background using spectral clustering.
 
- * :ref:`example_cluster_plot_lena_segmentation.py`: Spectral clustering
-   to split the image of lena in regions.
+ * :ref:`example_cluster_plot_face_segmentation.py`: Spectral clustering
+   to split the image of the raccoon face in regions.
 
-.. |lena_kmeans| image:: ../auto_examples/cluster/images/plot_lena_segmentation_001.png
-    :target: ../auto_examples/cluster/plot_lena_segmentation.html
+.. |face_kmeans| image:: ../auto_examples/cluster/images/plot_face_segmentation_001.png
+    :target: ../auto_examples/cluster/plot_face_segmentation.html
     :scale: 65
 
-.. |lena_discretize| image:: ../auto_examples/cluster/images/plot_lena_segmentation_002.png
-    :target: ../auto_examples/cluster/plot_lena_segmentation.html
+.. |face_discretize| image:: ../auto_examples/cluster/images/plot_face_segmentation_002.png
+    :target: ../auto_examples/cluster/plot_face_segmentation.html
     :scale: 65
 
 Different label assignment strategies
@@ -490,7 +486,7 @@ geometrical shape.
 =====================================  =====================================
  ``assign_labels="kmeans"``              ``assign_labels="discretize"``
 =====================================  =====================================
-|lena_kmeans|                          |lena_discretize|
+|face_kmeans|                          |face_discretize|
 =====================================  =====================================
 
 
@@ -619,12 +615,12 @@ merging to nearest neighbors as in :ref:`this example
 <example_cluster_plot_agglomerative_clustering.py>`, or
 using :func:`sklearn.feature_extraction.image.grid_to_graph` to
 enable only merging of neighboring pixels on an image, as in the
-:ref:`Lena <example_cluster_plot_lena_ward_segmentation.py>` example.
+:ref:`raccoon face <example_cluster_plot_face_ward_segmentation.py>` example.
 
 .. topic:: Examples:
 
- * :ref:`example_cluster_plot_lena_ward_segmentation.py`: Ward clustering
-   to split the image of lena in regions.
+ * :ref:`example_cluster_plot_face_ward_segmentation.py`: Ward clustering
+   to split the image of a raccoon face in regions.
 
  * :ref:`example_cluster_plot_ward_structured_vs_unstructured.py`: Example of
    Ward algorithm on a swiss-roll, comparison of structured approaches
@@ -770,6 +766,22 @@ by black points below.
     (as was done in scikit-learn versions before 0.14).
     The possibility to use custom metrics is retained;
     for details, see :class:`NearestNeighbors`.
+
+.. topic:: Memory consumption for large sample sizes
+
+    This implementation is by default not memory efficient because it constructs
+    a full pairwise similarity matrix in the case where kd-trees or ball-trees cannot
+    be used (e.g. with sparse matrices). This matrix will consume n^2 floats.
+    A couple of mechanisms for getting around this are:
+
+    - A sparse radius neighborhood graph (where missing
+      entries are presumed to be out of eps) can be precomputed in a memory-efficient
+      way and dbscan can be run over this with ``metric='precomputed'``.
+
+    - The dataset can be compressed, either by removing exact duplicates if
+      these occur in your data, or by using BIRCH. Then you only have a
+      relatively small number of representatives for a large number of points.
+      You can then provide a ``sample_weight`` when fitting DBSCAN.
 
 .. topic:: References:
 
@@ -998,7 +1010,7 @@ random labelings by defining the adjusted Rand index as follows:
 .. topic:: References
 
  * `Comparing Partitions
-   <http://www.springerlink.com/content/x64124718341j1j0/>`_
+   <http://link.springer.com/article/10.1007%2FBF01908075>`_
    L. Hubert and P. Arabie, Journal of Classification 1985
 
  * `Wikipedia entry for the adjusted Rand index
@@ -1158,7 +1170,7 @@ calculated using a similar form to that of the adjusted Rand index:
  * Vinh, Epps, and Bailey, (2009). "Information theoretic measures
    for clusterings comparison". Proceedings of the 26th Annual International
    Conference on Machine Learning - ICML '09.
-   `doi:10.1145/1553374.1553511 <http://dx.doi.org/10.1145/1553374.1553511>`_.
+   `doi:10.1145/1553374.1553511 <https://dl.acm.org/citation.cfm?doid=1553374.1553511>`_.
    ISBN 9781605585161.
 
  * Vinh, Epps, and Bailey, (2010). Information Theoretic Measures for
@@ -1327,6 +1339,93 @@ mean of homogeneity and completeness**:
    <http://www.cs.columbia.edu/~hila/hila-thesis-distributed.pdf>`_, Hila
    Becker, PhD Thesis.
 
+.. _fowlkes_mallows_scores:
+
+Fowlkes-Mallows scores
+----------------------
+
+The Fowlkes-Mallows index (:func:`sklearn.metrics.fowlkes_mallows_score`) can be
+used when the ground truth class assignments of the samples is known. The
+Fowlkes-Mallows score FMI is defined as the geometric mean of the
+pairwise precision and recall:
+
+.. math:: \text{FMI} = \frac{\text{TP}}{\sqrt{(\text{TP} + \text{FP}) (\text{TP} + \text{FN})}}
+
+Where ``TP`` is the number of **True Positive** (i.e. the number of pair
+of points that belong to the same clusters in both the true labels and the
+predicted labels), ``FP`` is the number of **False Positive** (i.e. the number
+of pair of points that belong to the same clusters in the true labels and not
+in the predicted labels) and ``FN`` is the number of **False Negative** (i.e the
+number of pair of points that belongs in the same clusters in the predicted
+labels and not in the true labels).
+
+The score ranges from 0 to 1. A high value indicates a good similarity
+between two clusters.
+
+  >>> from sklearn import metrics
+  >>> labels_true = [0, 0, 0, 1, 1, 1]
+  >>> labels_pred = [0, 0, 1, 1, 2, 2]
+
+  >>> metrics.fowlkes_mallows_score(labels_true, labels_pred)  # doctest: +ELLIPSIS
+  0.47140...
+
+One can permute 0 and 1 in the predicted labels, rename 2 to 3 and get
+the same score::
+
+  >>> labels_pred = [1, 1, 0, 0, 3, 3]
+
+  >>> metrics.fowlkes_mallows_score(labels_true, labels_pred)  # doctest: +ELLIPSIS
+  0.47140...
+
+Perfect labeling is scored 1.0::
+
+  >>> labels_pred = labels_true[:]
+  >>> metrics.fowlkes_mallows_score(labels_true, labels_pred)  # doctest: +ELLIPSIS
+  1.0
+
+Bad (e.g. independent labelings) have zero scores::
+
+  >>> labels_true = [0, 1, 2, 0, 3, 4, 5, 1]
+  >>> labels_pred = [1, 1, 0, 0, 2, 2, 2, 2]
+  >>> metrics.fowlkes_mallows_score(labels_true, labels_pred)  # doctest: +ELLIPSIS
+  0.0
+
+Advantages
+~~~~~~~~~~
+
+- **Random (uniform) label assignments have a FMI score close to 0.0**
+  for any value of ``n_clusters`` and ``n_samples`` (which is not the
+  case for raw Mutual Information or the V-measure for instance).
+
+- **Bounded range [0, 1]**:  Values close to zero indicate two label
+  assignments that are largely independent, while values close to one
+  indicate significant agreement. Further, values of exactly 0 indicate
+  **purely** independent label assignments and a AMI of exactly 1 indicates
+  that the two label assignments are equal (with or without permutation).
+
+- **No assumption is made on the cluster structure**: can be used
+  to compare clustering algorithms such as k-means which assumes isotropic
+  blob shapes with results of spectral clustering algorithms which can
+  find cluster with "folded" shapes.
+
+
+Drawbacks
+~~~~~~~~~
+
+- Contrary to inertia, **FMI-based measures require the knowledge
+  of the ground truth classes** while almost never available in practice or
+  requires manual assignment by human annotators (as in the supervised learning
+  setting).
+
+.. topic:: References
+
+  * E. B. Fowkles and C. L. Mallows, 1983. "A method for comparing two
+    hierarchical clusterings". Journal of the American Statistical Association.
+    http://wildfire.stat.ucla.edu/pdflibrary/fowlkes.pdf
+
+  * `Wikipedia entry for the Fowlkes-Mallows Index
+    <https://en.wikipedia.org/wiki/Fowlkes-Mallows_index>`_
+
 .. _silhouette_coefficient:
 
 Silhouette Coefficient
@@ -1402,4 +1501,72 @@ Drawbacks
  * :ref:`example_cluster_plot_kmeans_silhouette_analysis.py` : In this example
    the silhouette analysis is used to choose an optimal value for n_clusters.
 
+.. _calinski_harabaz_index:
 
+Calinski-Harabaz Index
+----------------------
+
+If the ground truth labels are not known, the Calinski-Harabaz index
+(:func:`sklearn.metrics.calinski_harabaz_score`) can be used to evaluate the
+model, where a higher Calinski-Harabaz score relates to a model with better
+defined clusters.
+
+For :math:`k` clusters, the Calinski-Harabaz score :math:`s` is given as the
+ratio of the between-clusters dispersion mean and the within-cluster
+dispersion:
+
+.. math::
+  s(k) = \frac{\mathrm{Tr}(B_k)}{\mathrm{Tr}(W_k)} \times \frac{N - k}{k - 1}
+
+where :math:`B_K` is the between group dispersion matrix and :math:`W_K`
+is the within-cluster dispersion matrix defined by:
+
+.. math:: W_k = \sum_{q=1}^k \sum_{x \in C_q} (x - c_q) (x - c_q)^T
+
+.. math:: B_k = \sum_q n_q (c_q - c) (c_q - c)^T
+
+with :math:`N` be the number of points in our data, :math:`C_q` be the set of
+points in cluster :math:`q`, :math:`c_q` be the center of cluster
+:math:`q`, :math:`c` be the center of :math:`E`, :math:`n_q` be the number of
+points in cluster :math:`q`.
+
+
+  >>> from sklearn import metrics
+  >>> from sklearn.metrics import pairwise_distances
+  >>> from sklearn import datasets
+  >>> dataset = datasets.load_iris()
+  >>> X = dataset.data
+  >>> y = dataset.target
+
+In normal usage, the Calinski-Harabaz index is applied to the results of a
+cluster analysis.
+
+  >>> import numpy as np
+  >>> from sklearn.cluster import KMeans
+  >>> kmeans_model = KMeans(n_clusters=3, random_state=1).fit(X)
+  >>> labels = kmeans_model.labels_
+  >>> metrics.calinski_harabaz_score(X, labels)  # doctest: +ELLIPSIS
+  560.39...
+
+
+Advantages
+~~~~~~~~~~
+
+- The score is higher when clusters are dense and well separated, which relates
+  to a standard concept of a cluster.
+
+- The score is fast to compute
+
+
+Drawbacks
+~~~~~~~~~
+
+- The Calinski-Harabaz index is generally higher for convex clusters than other
+  concepts of clusters, such as density based clusters like those obtained
+  through DBSCAN.
+
+.. topic:: References
+
+ *  Caliński, T., & Harabasz, J. (1974). "A dendrite method for cluster
+    analysis". Communications in Statistics-theory and Methods 3: 1-27.
+    `doi:10.1080/03610926.2011.560741 <http://dx.doi.org/10.1080/03610926.2011.560741>`_.

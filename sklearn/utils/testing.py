@@ -8,6 +8,7 @@
 #          Arnaud Joly
 #          Denis Engemann
 #          Giorgio Patrini
+#          Thierry Guillemot
 # License: BSD 3 clause
 import os
 import inspect
@@ -16,6 +17,7 @@ import warnings
 import sys
 import re
 import platform
+import struct
 
 import scipy as sp
 import scipy.io
@@ -92,8 +94,7 @@ except ImportError:
     # for Python 2
     def assert_raises_regex(expected_exception, expected_regexp,
                             callable_obj=None, *args, **kwargs):
-        """Helper function to check for message patterns in exceptions"""
-
+        """Helper function to check for message patterns in exceptions."""
         not_raised = False
         try:
             callable_obj(*args, **kwargs)
@@ -110,7 +111,7 @@ except ImportError:
                                   callable_obj.__name__))
 
 # assert_raises_regexp is deprecated in Python 3.4 in favor of
-# assert_raises_regex but lets keep the bacward compat in scikit-learn with
+# assert_raises_regex but lets keep the backward compat in scikit-learn with
 # the old name for now
 assert_raises_regexp = assert_raises_regex
 
@@ -164,7 +165,6 @@ def assert_warns(warning_class, func, *args, **kw):
     result : the return value of `func`
 
     """
-
     # very important to avoid uncontrolled state propagation
     clean_warning_registry()
     with warnings.catch_warnings(record=True) as w:
@@ -281,12 +281,17 @@ def assert_no_warnings(func, *args, **kw):
     return result
 
 
-def ignore_warnings(obj=None):
-    """ Context manager and decorator to ignore warnings
+def ignore_warnings(obj=None, category=Warning):
+    """Context manager and decorator to ignore warnings.
 
     Note. Using this (in both variants) will clear all warnings
     from all python modules loaded. In case you need to test
     cross-module-warning-logging this is not your tool of choice.
+
+    Parameters
+    ----------
+    category : warning class, defaults to Warning.
+        The category to filter. If Warning, all categories will be muted.
 
     Examples
     --------
@@ -299,47 +304,44 @@ def ignore_warnings(obj=None):
 
     >>> ignore_warnings(nasty_warn)()
     42
-
     """
     if callable(obj):
-        return _ignore_warnings(obj)
+        return _IgnoreWarnings(category=category)(obj)
     else:
-        return _IgnoreWarnings()
-
-
-def _ignore_warnings(fn):
-    """Decorator to catch and hide warnings without visual nesting"""
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        # very important to avoid uncontrolled state propagation
-        clean_warning_registry()
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always')
-            return fn(*args, **kwargs)
-            w[:] = []
-
-    return wrapper
+        return _IgnoreWarnings(category=category)
 
 
 class _IgnoreWarnings(object):
+    """Improved and simplified Python warnings context manager and decorator.
 
-    """Improved and simplified Python warnings context manager
-
+    This class allows to ignore the warnings raise by a function.
     Copied from Python 2.7.5 and modified as required.
+
+    Parameters
+    ----------
+    category : tuple of warning class, defaut to Warning
+        The category to filter. By default, all the categories will be muted.
+
     """
 
-    def __init__(self):
-        """
-        Parameters
-        ==========
-        category : warning class
-            The category to filter. Defaults to Warning. If None,
-            all categories will be muted.
-        """
+    def __init__(self, category):
         self._record = True
         self._module = sys.modules['warnings']
         self._entered = False
         self.log = []
+        self.category = category
+
+    def __call__(self, fn):
+        """Decorator to catch and hide warnings without visual nesting."""
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            # very important to avoid uncontrolled state propagation
+            clean_warning_registry()
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", self.category)
+                return fn(*args, **kwargs)
+
+        return wrapper
 
     def __repr__(self):
         args = []
@@ -352,22 +354,13 @@ class _IgnoreWarnings(object):
 
     def __enter__(self):
         clean_warning_registry()  # be safe and not propagate state + chaos
-        warnings.simplefilter('always')
+        warnings.simplefilter("ignore", self.category)
         if self._entered:
             raise RuntimeError("Cannot enter %r twice" % self)
         self._entered = True
         self._filters = self._module.filters
         self._module.filters = self._filters[:]
         self._showwarning = self._module.showwarning
-        if self._record:
-            self.log = []
-
-            def showwarning(*args, **kwargs):
-                self.log.append(warnings.WarningMessage(*args, **kwargs))
-            self._module.showwarning = showwarning
-            return self.log
-        else:
-            return None
 
     def __exit__(self, *exc_info):
         if not self._entered:
@@ -406,19 +399,19 @@ else:
 
 
 def assert_raise_message(exceptions, message, function, *args, **kwargs):
-    """Helper function to test error messages in exceptions
+    """Helper function to test error messages in exceptions.
 
     Parameters
     ----------
     exceptions : exception or tuple of exception
         Name of the estimator
 
-    func : callable
+    function : callable
         Calable object to raise error
 
-    *args : the positional arguments to `func`.
+    *args : the positional arguments to `function`.
 
-    **kw : the keyword arguments to `func`
+    **kw : the keyword arguments to `function`
     """
     try:
         function(*args, **kwargs)
@@ -529,9 +522,10 @@ def uninstall_mldata_mock():
 
 
 # Meta estimators need another estimator to be instantiated.
-META_ESTIMATORS = ["OneVsOneClassifier",
-                   "OutputCodeClassifier", "OneVsRestClassifier", "RFE",
-                   "RFECV", "BaseEnsemble"]
+META_ESTIMATORS = ["OneVsOneClassifier", "MultiOutputEstimator",
+                   "MultiOutputRegressor", "MultiOutputClassifier",
+                   "OutputCodeClassifier", "OneVsRestClassifier",
+                   "RFE", "RFECV", "BaseEnsemble"]
 # estimators that there is no way to default-construct sensibly
 OTHER = ["Pipeline", "FeatureUnion", "GridSearchCV", "RandomizedSearchCV",
          "SelectFromModel"]
@@ -614,8 +608,8 @@ def all_estimators(include_meta_estimators=False,
     all_classes = set(all_classes)
 
     estimators = [c for c in all_classes
-                  if (issubclass(c[1], BaseEstimator)
-                      and c[0] != 'BaseEstimator')]
+                  if (issubclass(c[1], BaseEstimator) and
+                      c[0] != 'BaseEstimator')]
     # get rid of abstract base classes
     estimators = [c for c in estimators if not is_abstract(c[1])]
 
@@ -645,7 +639,8 @@ def all_estimators(include_meta_estimators=False,
         estimators = filtered_estimators
         if type_filter:
             raise ValueError("Parameter type_filter must be 'classifier', "
-                             "'regressor', 'transformer', 'cluster' or None, got"
+                             "'regressor', 'transformer', 'cluster' or "
+                             "None, got"
                              " %s." % repr(type_filter))
 
     # drop duplicates, sort for reproducibility
@@ -660,7 +655,6 @@ def set_random_state(estimator, random_state=0):
     Classes for whom random_state is deprecated are ignored. Currently DBSCAN
     is one such class.
     """
-
     if isinstance(estimator, DBSCAN):
         return
 
@@ -669,8 +663,7 @@ def set_random_state(estimator, random_state=0):
 
 
 def if_matplotlib(func):
-    """Test decorator that skips test if matplotlib not installed. """
-
+    """Test decorator that skips test if matplotlib not installed."""
     @wraps(func)
     def run_test(*args, **kwargs):
         try:
@@ -681,6 +674,18 @@ def if_matplotlib(func):
             plt.figure()
         except ImportError:
             raise SkipTest('Matplotlib not available.')
+        else:
+            return func(*args, **kwargs)
+    return run_test
+
+
+def skip_if_32bit(func):
+    """Test decorator that skips tests on 32bit platforms."""
+    @wraps(func)
+    def run_test(*args, **kwargs):
+        bits = 8 * struct.calcsize("P")
+        if bits == 32:
+            raise SkipTest('Test skipped on 32bit platforms.')
         else:
             return func(*args, **kwargs)
     return run_test
@@ -709,34 +714,35 @@ def if_not_mac_os(versions=('10.7', '10.8', '10.9'),
 
 
 def if_safe_multiprocessing_with_blas(func):
-    """Decorator for tests involving both BLAS calls and multiprocessing
+    """Decorator for tests involving both BLAS calls and multiprocessing.
 
-    Under Python < 3.4 and POSIX (e.g. Linux or OSX), using multiprocessing in
-    conjunction with some implementation of BLAS (or other libraries that
-    manage an internal posix thread pool) can cause a crash or a freeze of the
-    Python process.
-
-    Under Python 3.4 and later, joblib uses the forkserver mode of
-    multiprocessing which does not trigger this problem.
+    Under POSIX (e.g. Linux or OSX), using multiprocessing in conjunction with
+    some implementation of BLAS (or other libraries that manage an internal
+    posix thread pool) can cause a crash or a freeze of the Python process.
 
     In practice all known packaged distributions (from Linux distros or
     Anaconda) of BLAS under Linux seems to be safe. So we this problem seems to
     only impact OSX users.
 
     This wrapper makes it possible to skip tests that can possibly cause
-    this crash under OSX with.
+    this crash under OS X with.
+
+    Under Python 3.4+ it is possible to use the `forkserver` start method
+    for multiprocessing to avoid this issue. However it can cause pickling
+    errors on interactively defined functions. It therefore not enabled by
+    default.
     """
     @wraps(func)
     def run_test(*args, **kwargs):
-        if sys.platform == 'darwin' and sys.version_info[:2] < (3, 4):
+        if sys.platform == 'darwin':
             raise SkipTest(
-                "Possible multi-process bug with some BLAS under Python < 3.4")
+                "Possible multi-process bug with some BLAS")
         return func(*args, **kwargs)
     return run_test
 
 
 def clean_warning_registry():
-    """Safe way to reset warnings """
+    """Safe way to reset warnings."""
     warnings.resetwarnings()
     reg = "__warningregistry__"
     for mod_name, mod in list(sys.modules.items()):
@@ -759,7 +765,9 @@ def check_skip_travis():
 
 def _delete_folder(folder_path, warn=False):
     """Utility function to cleanup a temporary folder if still existing.
-    Copy from joblib.pool (for independance)"""
+
+    Copy from joblib.pool (for independence).
+    """
     try:
         if os.path.exists(folder_path):
             # This can fail under windows,

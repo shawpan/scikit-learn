@@ -67,7 +67,7 @@ def _update_doc_distribution(X, exp_topic_word_distr, doc_topic_prior,
     -------
     (doc_topic_distr, suff_stats) :
         `doc_topic_distr` is unnormalized topic distribution for each document.
-        In the literature, this is `gamma`. we can calcuate `E[log(theta)]`
+        In the literature, this is `gamma`. we can calculate `E[log(theta)]`
         from it.
         `suff_stats` is expected sufficient statistics for the M-step.
             When `cal_sstats == False`, this will be None.
@@ -136,6 +136,10 @@ def _update_doc_distribution(X, exp_topic_word_distr, doc_topic_prior,
 class LatentDirichletAllocation(BaseEstimator, TransformerMixin):
     """Latent Dirichlet Allocation with online variational Bayes algorithm
 
+    .. versionadded:: 0.17
+
+    Read more in the :ref:`User Guide <LatentDirichletAllocation>`.
+
     Parameters
     ----------
     n_topics : int, optional (default=10)
@@ -189,7 +193,7 @@ class LatentDirichletAllocation(BaseEstimator, TransformerMixin):
 
     evaluate_every : int optional (default=0)
         How often to evaluate perplexity. Only used in `fit` method.
-        set it to 0 or and negative number to not evalute perplexity in
+        set it to 0 or negative number to not evalute perplexity in
         training at all. Evaluating perplexity can help you check convergence
         in training process, but it will also increase total training time.
         Evaluating perplexity in every iteration might increase training time
@@ -346,7 +350,7 @@ class LatentDirichletAllocation(BaseEstimator, TransformerMixin):
         # TODO: make Parallel._effective_n_jobs public instead?
         n_jobs = _get_n_jobs(self.n_jobs)
         if parallel is None:
-            parallel = Parallel(n_jobs=n_jobs, verbose=self.verbose)
+            parallel = Parallel(n_jobs=n_jobs, verbose=max(0, self.verbose - 1))
         results = parallel(
             delayed(_update_doc_distribution)(X[idx_slice, :],
                                               self.exp_dirichlet_component_,
@@ -465,7 +469,7 @@ class LatentDirichletAllocation(BaseEstimator, TransformerMixin):
                 (n_features, self.components_.shape[1]))
 
         n_jobs = _get_n_jobs(self.n_jobs)
-        with Parallel(n_jobs=n_jobs, verbose=self.verbose) as parallel:
+        with Parallel(n_jobs=n_jobs, verbose=max(0, self.verbose - 1)) as parallel:
             for idx_slice in gen_batches(n_samples, batch_size):
                 self._em_step(X[idx_slice, :],
                               total_samples=self.total_samples,
@@ -502,7 +506,7 @@ class LatentDirichletAllocation(BaseEstimator, TransformerMixin):
         # change to perplexity later
         last_bound = None
         n_jobs = _get_n_jobs(self.n_jobs)
-        with Parallel(n_jobs=n_jobs, verbose=self.verbose) as parallel:
+        with Parallel(n_jobs=n_jobs, verbose=max(0, self.verbose - 1)) as parallel:
             for i in xrange(max_iter):
                 if learning_method == 'online':
                     for idx_slice in gen_batches(n_samples, batch_size):
@@ -516,7 +520,8 @@ class LatentDirichletAllocation(BaseEstimator, TransformerMixin):
                 # check perplexity
                 if evaluate_every > 0 and (i + 1) % evaluate_every == 0:
                     doc_topics_distr, _ = self._e_step(X, cal_sstats=False,
-                                                       random_init=False)
+                                                       random_init=False,
+                                                       parallel=parallel)
                     bound = self.perplexity(X, doc_topics_distr,
                                             sub_sampling=False)
                     if self.verbose:
@@ -558,6 +563,8 @@ class LatentDirichletAllocation(BaseEstimator, TransformerMixin):
 
         doc_topic_distr, _ = self._e_step(X, cal_sstats=False,
                                           random_init=False)
+        # normalize doc_topic_distr
+        doc_topic_distr /= doc_topic_distr.sum(axis=1)[:, np.newaxis]
         return doc_topic_distr
 
     def _approx_bound(self, X, doc_topic_distr, sub_sampling):
@@ -578,7 +585,7 @@ class LatentDirichletAllocation(BaseEstimator, TransformerMixin):
 
         sub_sampling : boolean, optional, (default=False)
             Compensate for subsampling of documents.
-            It is used in calcuate bound in online learning.
+            It is used in calculate bound in online learning.
 
         Returns
         -------
